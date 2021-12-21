@@ -1,0 +1,3 @@
+O esquemático do circuito foi feito no software TI-Tina da Texas Instruments
+
+Nesse software é possível testar o circuito

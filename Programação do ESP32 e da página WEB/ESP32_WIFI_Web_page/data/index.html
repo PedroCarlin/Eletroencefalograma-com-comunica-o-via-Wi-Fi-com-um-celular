@@ -1,0 +1,116 @@
+<!DOCTYPE HTML><html>
+
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!--Arquivos necessarios para usar a biblioteca do Highcharts-->
+  <!--Os arquivos estão disponiveis em: https://www.highcharts.com/blog/download/-->
+  <script src="highcharts.js"></script>
+  <script src="data.js"></script>
+  <script src="exporting.js"></script>
+  <script src="export-data.js"></script>
+
+</head>
+
+<body>
+    <style>
+        input {
+            height: 4vh;;
+        }
+    </style>
+
+    <div style="margin-top: 3vh; text-align: center;">
+        <h1>Sinal EEG</h1>
+    </div>
+    <div style="margin-top: 5vh; text-align: center;">
+        <input id="inicial" type="image" src="play.png">
+        <input id="pause" type="image" src="pause.png" style="margin-left: 2vw;">
+        <input id="restart" type="image" src="restart.png" style="margin-left: 2vw;">
+    </div>
+    <figure class="highcharts-figure" style="margin: 3vw;">
+        <div id="container"></div>
+    </figure>
+</body>
+</html>
+
+<script>
+    //Inicializa a biblioteca do Highcharts
+    var chartT = new Highcharts.Chart({
+        chart: { renderTo : 'container',
+            //Permite dar zoom no sentido do eixo X
+		    zoomType: 'x' 
+	    },
+        title: { text: '' },
+        series: [{
+            showInLegend: false,
+            data: []
+        }],
+        xAxis: {
+            title: {text: 'Tempo (s)'},
+            type: 'float',
+        },
+        yAxis: {
+            title: { text: 'Tensao (V)' },
+            //Valores do eixo Y
+            max: 1.65, 
+            min: 1.40, 
+        },
+        credits: { enabled: false }
+    });
+
+    var x = 0;
+    var agora;
+    var clock;
+
+    function aquisicao (){
+        var xhttp = new XMLHttpRequest();
+
+        // Faz uma requisição assincrona para o ESP32
+        xhttp.open("GET", "/EEG", true);
+
+        //Quando a requisição retorna entra nessa função
+        xhttp.onreadystatechange = function () {
+            //Verifica se a requisição não voltou com falha
+            if (this.readyState == 4 && this.status == 200) {
+                
+                //Separa os dados que vieram da requisição
+                var dado = this.responseText.split(" ");
+
+                //Insere os dados no gráfico
+                dado.forEach(function(item){
+                    if(item != " " && item != ""){
+                        var y = parseFloat(item)*3.3/4095;
+                        x = x + (10/1000);
+                        if (chartT.series[0].data.length > 1000) {
+                            //Até 1000 pontos se insere pontos no gráfico se deslocar ele
+                            chartT.series[0].addPoint([x, y], true, true, false);
+                        } else {
+                            //Depois dos 1000 pontos, sempre que adcionar um ponto no gráfico, ele será deslocado
+                            //Mantendo sempre 1000 pontos no gráfico
+                            chartT.series[0].addPoint([x, y], true, false, false);
+                        }
+                    }
+                });
+            }
+        };
+        xhttp.send();
+    }
+    
+    //Eventos resposaveis por processar a ação dos botões
+    document.querySelector("#inicial").addEventListener('click', function(){
+        //Criar uma tarefa que será processada a cada 100ms
+        clock = setInterval(aquisicao, 100);
+    });
+
+    document.querySelector("#pause").addEventListener('click', function(){
+        //Interrompe o clico de tarefas
+        clearInterval(clock);
+    });
+
+    document.querySelector("#restart").addEventListener('click', function(){
+        clearInterval(clock);
+        x=0;
+        //Limpa todos os dados do gráfico
+        chartT.series[0].setData([]);
+    });
+</script>
